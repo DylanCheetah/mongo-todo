@@ -1,0 +1,37 @@
+{
+  "name": "mongo-todo",
+  "version": "1.0.0",
+  "description": "A todo list REST API that demonstrates basic backend development concepts.",
+  "main": "index.js",
+  "scripts": {
+    "debug": "nodemon index.js",
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DylanCheetah/mongo-todo.git"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "tutorial",
+    "mongodb",
+    "backend",
+    "rest-api",
+    "todo-list"
+  ],
+  "author": "DylanCheetah",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DylanCheetah/mongo-todo/issues"
+  },
+  "homepage": "https://github.com/DylanCheetah/mongo-todo#readme",
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mongodb": "^6.6.1"
+  }
+}
