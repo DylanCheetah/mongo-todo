@@ -171,3 +171,199 @@ curl -X PUT --json "{\"completed\": true}" http://127.0.0.1:8000/task/1
 curl -X DELETE http://127.0.0.1:8000/task/1
 ```
 6. right now each route should respond with "Not Implemented" and you should see some additional output in the server logs
+
+### Phase 5: Unit Testing
+As you may have noticed, testing each endpoint with curl becomes tedious and time-consuming. It's also easier to make a mistake while testing. Fortunately for us, there is a better way to test our REST API endpoints. If we install Mocha and node-fetch, we can do automated unit testing of our REST API endpoints. Mocha is a unit testing framework for Node.js and node-fetch provides a convenient way to send HTTP requests.
+
+1. execute `npm install --save-dev mocha` to install Mocha
+2. execute `npm install --save node-fetch@2.7.0` to install node-fetch
+3. create a `test` folder inside your project folder
+4. create `test/task.js` with the following content:
+```js
+/*
+ * Mongo Todo - Unit Tests for Task API
+ *
+ * These are the unit tests for the task API.
+ */
+
+// Import node-fetch
+const fetch = require("node-fetch");
+
+// Connect to database
+const DB_URL = process.env.DB_URL || "mongodb://127.0.0.1/mongo-todo";
+const mongodb = require("mongodb");
+const client = new mongodb.MongoClient(DB_URL);
+
+// Run tests
+describe("Task", function() {
+    describe("POST", function() {
+        it("valid request", function(done) {
+            // Post a new task
+            fetch("http://127.0.0.1:8000/task", {
+                method: "POST",
+                body: JSON.stringify({
+                    name: "Wash Laundry"
+                })
+            })
+            .then((response) => {
+                // Check response code
+                if(response.status == 201) {
+                    done();
+                } else {
+                    done({msg: `Response code was ${response.status}. Expected 201 instead.`});
+                }
+            })
+            .catch((err) => {
+                done(err);
+            });
+        });
+
+        it("invalid request", function(done) {
+            // Try to post a new task with invalid input
+            fetch("http://127.0.0.1:8000/task", {
+                method: "POST",
+                body: JSON.stringify({
+                    trash: "invalid trash"
+                })
+            })
+            .then((response) => {
+                // Check response code
+                if(response.status == 400) {
+                    done();
+                } else {
+                    done({msg: `Response code was ${response.status}. Expected 400 instead.`});
+                }
+            })
+            .catch((err) => {
+                done(err);
+            });
+        });
+    });
+
+    describe("GET", function() {
+        it("valid request", function(done) {
+            // Get all tasks
+            fetch("http://127.0.0.1:8000/tasks")
+            .then((response) => response.json())
+            .then((payload) => {
+                // Is the payload valid?
+                const validPayload = {
+                    tasks: [
+                        {name: "Wash Laundry"}
+                    ]
+                };
+
+                if(payload == validPayload) {
+                    done();
+                } else {
+                    done({msg: "The received payload did not match the expected payload."});
+                }
+            })
+            .catch((err) => {
+                done(err);
+            })
+        });
+    });
+
+    describe("PUT", function() {
+        it("valid request", function(done) {
+            // Update a task
+            fetch("http://127.0.0.1:8000/task/1", {
+                method: "PUT",
+                body: JSON.stringify({
+                    completed: true
+                })
+            })
+            .then((response) => {
+                // Check response code
+                if(response.status == 204) {
+                    done();
+                } else {
+                    done({msg: `Response code was ${response.status}. Expected 204 instead.`});
+                }
+            })
+            .catch((err) => {
+                done(err);
+            });
+        });
+
+        it("invalid request", function(done) {
+            // Try invalid task update request
+            fetch("http://127.0.0.1:8000/task/1", {
+                method: "PUT",
+                body: JSON.stringify({
+                    trash: "invalid trash"
+                })
+            })
+            .then((response) => {
+                // Check response code
+                if(response.status == 400) {
+                    done();
+                } else {
+                    done({msg: `Response code was ${response.status}. Expected 400 instead.`});
+                }
+            })
+            .catch((err) => {
+                done(err);
+            });
+        });
+    });
+
+    describe("DELETE", function() {
+        it("valid request", function(done) {
+            // Delete a task
+            fetch("http://127.0.0.1:8000/task/1", {
+                method: "DELETE"
+            })
+            .then((response) => {
+                // Check response code
+                if(response.status == 204) {
+                    done();
+                } else {
+                    done({msg: `Response code was ${response.status}. Expected 204 instead.`});
+                }
+            })
+            .catch((err) => {
+                done(err);
+            })
+        });
+
+        it("invalid request", function(done) {
+            // Try to send invalid delete request
+            fetch("http://127.0.0.1:8000/task/250", {
+                method: "DELETE"
+            })
+            .then((response) => {
+                // Check response code
+                if(response.status == 400) {
+                    done();
+                } else {
+                    done({msg: `Response code was ${response.status}. Expected 400 instead.`});
+                }
+            })
+        });
+    });
+
+    // Cleanup
+    this.afterAll(function() {
+        // Drop tasks collection
+        client.db().dropCollection("tasks")
+        .then(() => {
+            client.close();
+        });
+    });
+});
+```
+5. open `package.json` and change the test script like this:
+```json
+{
+  ...
+  "scripts": {
+    ...
+    "test": "mocha"
+  }
+  ...
+}
+```
+6. execute `npm test` to run the tests
+7. at this point, all tests should fail since none of the REST API endpoints have been implemented
