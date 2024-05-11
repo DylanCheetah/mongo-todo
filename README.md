@@ -1,5 +1,5 @@
 # mongo-todo
-A todo list REST API that demonstrates basic backend development concepts.
+A todo list REST API that demonstrates basic backend development concepts. This project is a single-tenant application intended for educational purposes and is not suitable for production.
 
 
 ## Required Software
@@ -100,16 +100,21 @@ app.listen(PORT, HOST, () => {
 ```
 
 ### Phase 3: Connect Backend to MongoDB
-Now that we have the basic framework for our backend completed, we need to connect it to our database. To do this, we will need to add some additional code after we create our app object and before we define our routes.
+Now that we have the basic framework for our backend completed, we need to connect it to our database. To do this, we will need to create a module that provides an API for connecting to our database server.
 
-1. open `index.js` and add the following code before the section where we define the routes:
+1. create `db.js` with the following content:
 ```js
-...
+/*
+ * Mongo Todo - Database API
+ *
+ * This module provides access to the database used by this web app.
+ */
+
 // Connect to database
 const DB_URL = process.env.DB_URL || "mongodb://127.0.0.1/mongo-todo";
 const mongodb = require("mongodb");
 const client = new mongodb.MongoClient(DB_URL);
-...
+module.exports = client;
 ```
 
 ### Phase 4: Setup REST API Routes
@@ -156,7 +161,7 @@ router.delete("/task/:id", (req, res) => {
 ```
 3. open `index.js` and add the following to the end of your routes section:
 ```js
-app.use(require("./routes/task"));
+app.use("/api/v1/", require("./routes/task"));
 ```
 4. you also need to add this above your routes section:
 ```js
@@ -165,10 +170,10 @@ app.use(express.json());
 ```
 5. now you should be able to ping each route with curl like this:
 ```shell
-curl -X POST --json "{\"name\": \"Wash Laundry\"}" http://127.0.0.1:8000/task
-curl http://127.0.0.1:8000/tasks
-curl -X PUT --json "{\"completed\": true}" http://127.0.0.1:8000/task/1
-curl -X DELETE http://127.0.0.1:8000/task/1
+curl -X POST --json "{\"name\": \"Wash Laundry\"}" http://127.0.0.1:8000/api/v1/task
+curl http://127.0.0.1:8000/api/v1/tasks
+curl -X PUT --json "{\"completed\": true}" http://127.0.0.1:8000/api/v1/task/1
+curl -X DELETE http://127.0.0.1:8000/api/v1/task/1
 ```
 6. right now each route should respond with "Not Implemented" and you should see some additional output in the server logs
 
@@ -186,21 +191,22 @@ As you may have noticed, testing each endpoint with curl becomes tedious and tim
  * These are the unit tests for the task API.
  */
 
-// Import node-fetch
+// Import node-fetch and db
 const fetch = require("node-fetch");
-
-// Connect to database
-const DB_URL = process.env.DB_URL || "mongodb://127.0.0.1/mongo-todo";
-const mongodb = require("mongodb");
-const client = new mongodb.MongoClient(DB_URL);
+const db = require("../db");
 
 // Run tests
 describe("Task", function() {
+    let taskID = null;
+
     describe("POST", function() {
         it("valid request", function(done) {
             // Post a new task
-            fetch("http://127.0.0.1:8000/task", {
+            fetch("http://127.0.0.1:8000/api/v1/task", {
                 method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
                 body: JSON.stringify({
                     name: "Wash Laundry"
                 })
@@ -220,8 +226,11 @@ describe("Task", function() {
 
         it("invalid request", function(done) {
             // Try to post a new task with invalid input
-            fetch("http://127.0.0.1:8000/task", {
+            fetch("http://127.0.0.1:8000/api/v1/task", {
                 method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
                 body: JSON.stringify({
                     trash: "invalid trash"
                 })
@@ -243,17 +252,12 @@ describe("Task", function() {
     describe("GET", function() {
         it("valid request", function(done) {
             // Get all tasks
-            fetch("http://127.0.0.1:8000/tasks")
+            fetch("http://127.0.0.1:8000/api/v1/tasks")
             .then((response) => response.json())
             .then((payload) => {
                 // Is the payload valid?
-                const validPayload = {
-                    tasks: [
-                        {name: "Wash Laundry"}
-                    ]
-                };
-
-                if(payload == validPayload) {
+                if(payload.tasks.length && payload.tasks[0].name == "Wash Laundry") {
+                    taskID = payload.tasks[0]._id;
                     done();
                 } else {
                     done({msg: "The received payload did not match the expected payload."});
@@ -268,8 +272,11 @@ describe("Task", function() {
     describe("PUT", function() {
         it("valid request", function(done) {
             // Update a task
-            fetch("http://127.0.0.1:8000/task/1", {
+            fetch(`http://127.0.0.1:8000/api/v1/task/${taskID}`, {
                 method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
                 body: JSON.stringify({
                     completed: true
                 })
@@ -289,7 +296,7 @@ describe("Task", function() {
 
         it("invalid request", function(done) {
             // Try invalid task update request
-            fetch("http://127.0.0.1:8000/task/1", {
+            fetch(`http://127.0.0.1:8000/api/v1/task/${taskID}`, {
                 method: "PUT",
                 body: JSON.stringify({
                     trash: "invalid trash"
@@ -307,12 +314,29 @@ describe("Task", function() {
                 done(err);
             });
         });
+
+        it("verify data integrity", function(done) {
+            // Fetch all tasks
+            fetch("http://127.0.0.1:8000/api/v1/tasks")
+            .then((response) => response.json())
+            .then((payload) => {
+                // Check if task "Wash Laundry" is now completed
+                if(payload.tasks[0].completed) {
+                    done();
+                } else {
+                    done({msg: "Task 'Wash Laundry' was not completed."})
+                }
+            })
+            .catch((err) => {
+                done(err);
+            })
+        });
     });
 
     describe("DELETE", function() {
         it("valid request", function(done) {
             // Delete a task
-            fetch("http://127.0.0.1:8000/task/1", {
+            fetch(`http://127.0.0.1:8000/api/v1/task/${taskID}`, {
                 method: "DELETE"
             })
             .then((response) => {
@@ -330,26 +354,43 @@ describe("Task", function() {
 
         it("invalid request", function(done) {
             // Try to send invalid delete request
-            fetch("http://127.0.0.1:8000/task/250", {
+            fetch("http://127.0.0.1:8000/api/v1/task/250", {
                 method: "DELETE"
             })
             .then((response) => {
                 // Check response code
-                if(response.status == 400) {
+                if(response.status == 500) {
                     done();
                 } else {
-                    done({msg: `Response code was ${response.status}. Expected 400 instead.`});
+                    done({msg: `Response code was ${response.status}. Expected 500 instead.`});
                 }
             })
+        });
+
+        it("verify data integrity", function(done) {
+            // Fetch all tasks
+            fetch("http://127.0.0.1:8000/api/v1/tasks")
+            .then((response) => response.json())
+            .then((payload) => {
+                // Check if the tasks list is empty
+                if(!payload.tasks.length) {
+                    done();
+                } else {
+                    done({msg: "The task list should be empty but it isn't."});
+                }
+            })
+            .catch((err) => {
+                done(err);
+            });
         });
     });
 
     // Cleanup
     this.afterAll(function() {
         // Drop tasks collection
-        client.db().dropCollection("tasks")
+        db.dropCollection("tasks")
         .then(() => {
-            client.close();
+            db.client.close();
         });
     });
 });
@@ -367,3 +408,92 @@ describe("Task", function() {
 ```
 6. execute `npm test` to run the tests
 7. at this point, all tests should fail since none of the REST API endpoints have been implemented
+
+### Phase 6: Implement REST API Endpoints
+Now that we have automated unit testing setup, we can implement our REST API endpoints and test them automatically.
+
+1. open `routes/task.js`
+2. add this code above the route definitions:
+```js
+// Import database API
+const db = require("../db");
+const ObjectId = require("mongodb").ObjectId;
+```
+3. replace the body of the route for the `POST /api/v1/task` endpoint with the following:
+```js
+// Validate task data
+if(!req.body.name) {
+    return res.status(400).end();
+}
+
+// Add the task to the database
+db.collection("tasks").insertOne(req.body)
+.then(() => {
+    return res.status(201).end();
+})
+.catch((err) => {
+    return res.status(500).json({msg: "A database error has occurred."});
+});
+```
+4. replace the body of the route for the `GET /api/v1/tasks` endpoint with the following:
+```js
+// Fetch all tasks from the database
+db.collection("tasks").find().toArray()
+.then((tasks) => {
+    return res.json({
+        tasks: tasks
+    });
+})
+.catch((err) => {
+    return res.status(500).json({msg: "A database error has occurred."});
+});
+```
+5. replace the body of the route for the `PUT /api/v1/task/:id` endpoint with the following:
+```js
+// Validate update data
+if(!req.body.name && !req.body.completed) {
+    return res.status(400).json({msg: "Field 'name' or 'completed' is required."});
+}
+
+// Update the given task
+const updateData = {};
+
+if(req.body.name) {
+    updateData.name = req.body.name;
+}
+
+if(req.body.completed) {
+    updateData.completed = req.body.completed;
+}
+
+db.collection("tasks").updateOne({_id: new ObjectId(req.params.id)}, {$set: updateData})
+.then(() => {
+    return res.status(204).end();
+})
+.catch((err) => {
+    return res.status(500).json({msg: "A database error occurred."});
+});
+```
+6. replace the body of the route for the `DELETE /api/v1/task/:id` endpoint with:
+```js
+// Delete the task
+db.collection("tasks").deleteOne({_id: new ObjectId(req.params.id)})
+.then(() => {
+    return res.status(204).end();
+})
+.catch((err) => {
+    return res.status(500).json({msg: "A database error occurred."});
+});
+```
+7. execute `npm test` and all tests should pass now
+
+### Phase 7: Optimization
+Now that everything is working correctly, let's optimize our database. As it is right now, whenever we do a PUT or DELETE operation, MongoDB has to do a full scan of the collection in order to find the task we need to update or delete. This is very inefficient. Especially for large data sets. However, we can improve this by creating an index on the `_id` field of each document in our `tasks` collection.
+
+1. open `db.js`
+2. add the following code to the bottom of the file:
+```js
+// Create indexes
+client.db().collection("tasks").createIndex({_id: 1});
+```
+3. execute `npm test` and you should notice an improvement in speed
