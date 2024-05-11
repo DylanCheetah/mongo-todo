@@ -201,10 +201,9 @@ describe("Task", function() {
     // Cleanup
     this.afterAll(function() {
         // Drop tasks collection
-        /* db.dropCollection("tasks")
+        db.dropCollection("tasks")
         .then(() => {
             db.client.close();
-        }); */
-        db.client.close();
+        });
     });
 });
