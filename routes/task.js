@@ -71,7 +71,7 @@ router.put("/task/:id", (req, res) => {
         updateData.completed = req.body.completed;
     }
 
-    db.collection("tasks").updateOne({_id: new ObjectId(req.params.id)}, {$set: updateData})
+    db.collection("tasks").updateOne({_id: ObjectId.createFromHexString(req.params.id)}, {$set: updateData})
     .then(() => {
         return res.status(204).end();
     })
@@ -82,7 +82,8 @@ router.put("/task/:id", (req, res) => {
 
 router.delete("/task/:id", (req, res) => {
     // Delete the task
-    db.collection("tasks").deleteOne({_id: new ObjectId(req.params.id)})
+    console.log(req.params);
+    db.collection("tasks").deleteOne({_id: ObjectId.createFromHexString(req.params.id)})
     .then(() => {
         return res.status(204).end();
     })

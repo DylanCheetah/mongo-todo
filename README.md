@@ -504,7 +504,7 @@ if(req.body.completed) {
     updateData.completed = req.body.completed;
 }
 
-db.collection("tasks").updateOne({_id: new ObjectId(req.params.id)}, {$set: updateData})
+db.collection("tasks").updateOne({_id: ObjectId.createFromHexString(req.params.id)}, {$set: updateData})
 .then(() => {
     return res.status(204).end();
 })
@@ -515,7 +515,7 @@ db.collection("tasks").updateOne({_id: new ObjectId(req.params.id)}, {$set: upda
 6. replace the body of the route for the `DELETE /api/v1/task/:id` endpoint with:
 ```js
 // Delete the task
-db.collection("tasks").deleteOne({_id: new ObjectId(req.params.id)})
+db.collection("tasks").deleteOne({_id: ObjectId.createFromHexString(req.params.id)})
 .then(() => {
     return res.status(204).end();
 })
