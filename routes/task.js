@@ -10,7 +10,16 @@ const router = express.Router();
 module.exports = router;
 
 // Import database API
-const db = require("../db");
+let db = null;
+
+require("../db")()
+.then((_db) => {
+    db = _db;
+})
+.catch((err) => {
+    console.error(err);
+});
+
 const ObjectId = require("mongodb").ObjectId;
 
 // Define routes

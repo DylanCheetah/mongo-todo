@@ -110,11 +110,32 @@ Now that we have the basic framework for our backend completed, we need to conne
  * This module provides access to the database used by this web app.
  */
 
-// Connect to database
-const DB_URL = process.env.DB_URL || "mongodb://127.0.0.1/mongo-todo";
-const mongodb = require("mongodb");
-const client = new mongodb.MongoClient(DB_URL);
-module.exports = client;
+// Import mongodb and create a database client
+const MongoClient = require("mongodb").MongoClient;
+const client = new MongoClient(process.env.DB_URL || "mongodb://127.0.0.1/mongo-todo");
+let db = null;
+
+module.exports = function() {
+    return new Promise((resolve, reject) => {
+        // If a connection has already been established, return the cached database object
+        if(db) {
+            return resolve(db);
+        }
+
+        // Connect to the database
+        client.connect()
+        .then(() => {
+            // Cache the database object
+            db = client.db();
+
+            // Return the database object
+            resolve(db);
+        })
+        .catch((err) => {
+            reject(err);
+        });
+    });
+};
 ```
 
 ### Phase 4: Setup REST API Routes
@@ -193,7 +214,15 @@ As you may have noticed, testing each endpoint with curl becomes tedious and tim
 
 // Import node-fetch and db
 const fetch = require("node-fetch");
-const db = require("../db");
+let db = null;
+
+require("../db")()
+.then((_db) => {
+    db = _db;
+})
+.catch((err) => {
+    console.error(err);
+});
 
 // Run tests
 describe("Task", function() {
@@ -416,7 +445,16 @@ Now that we have automated unit testing setup, we can implement our REST API end
 2. add this code above the route definitions:
 ```js
 // Import database API
-const db = require("../db");
+let db = null;
+
+require("../db")()
+.then((_db) => {
+    db = _db;
+})
+.catch((err) => {
+    console.error(err);
+});
+
 const ObjectId = require("mongodb").ObjectId;
 ```
 3. replace the body of the route for the `POST /api/v1/task` endpoint with the following:
@@ -491,7 +529,7 @@ db.collection("tasks").deleteOne({_id: new ObjectId(req.params.id)})
 Now that everything is working correctly, let's optimize our database. As it is right now, whenever we do a PUT or DELETE operation, MongoDB has to do a full scan of the collection in order to find the task we need to update or delete. This is very inefficient. Especially for large data sets. However, we can improve this by creating an index on the `_id` field of each document in our `tasks` collection.
 
 1. open `db.js`
-2. add the following code to the bottom of the file:
+2. add the following code above the line where you resolve the promise:
 ```js
 // Create indexes
 client.db().collection("tasks").createIndex({_id: 1});

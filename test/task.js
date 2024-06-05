@@ -6,7 +6,15 @@
 
 // Import node-fetch and db
 const fetch = require("node-fetch");
-const db = require("../db");
+let db = null;
+
+require("../db")()
+.then((_db) => {
+    db = _db;
+})
+.catch((err) => {
+    console.error(err);
+});
 
 // Run tests
 describe("Task", function() {
